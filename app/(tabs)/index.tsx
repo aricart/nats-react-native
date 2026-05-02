@@ -1,16 +1,23 @@
 import { Image, StyleSheet } from "react-native";
+import { Suspense } from "react";
 
 import { HelloWave } from "@/components/HelloWave";
 import ParallaxScrollView from "@/components/ParallaxScrollView";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
-import { NatsProvider } from "@/contexts/NatsContext";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Nats from "@/components/Nats";
 import Kv from "@/components/Kv";
 import Obj from "@/components/Obj";
-import {NatsStyles} from "@/constants/NatsStyles";
+import { NatsStyles } from "@/constants/NatsStyles";
+import { natsConn, natsKv, natsObj } from "@/lib/nats";
 
 export default function HomeScreen() {
+  // prime all three resources so Suspense doesn't waterfall their fetches.
+  natsConn();
+  natsKv();
+  natsObj();
+
   return (
     <ParallaxScrollView
       headerBackgroundColor={{ light: "#A1CEDC", dark: "#1D3D47" }}
@@ -26,11 +33,28 @@ export default function HomeScreen() {
         <HelloWave />
       </ThemedView>
       <ThemedView>
-        <NatsProvider url="wss://demo.nats.io:8443">
-          <Nats />
-          <Kv />
-          <Obj />
-        </NatsProvider>
+        <ErrorBoundary
+          fallback={(err) => (
+            <ThemedView>
+              <ThemedText type="subtitle">
+                Error Connecting to NATS
+              </ThemedText>
+              <ThemedText>{err.message}</ThemedText>
+            </ThemedView>
+          )}
+        >
+          <Suspense
+            fallback={
+              <ThemedView>
+                <ThemedText type="subtitle">Connecting to NATS...</ThemedText>
+              </ThemedView>
+            }
+          >
+            <Nats />
+            <Kv />
+            <Obj />
+          </Suspense>
+        </ErrorBoundary>
       </ThemedView>
     </ParallaxScrollView>
   );
@@ -38,19 +62,8 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
   },
 });
